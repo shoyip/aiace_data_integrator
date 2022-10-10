@@ -18,9 +18,9 @@
 #
 # Load environment variables
  
-set -a;
-source .env;
-set +a;
+# set -a;
+# source .env;
+# set +a;
 
 # DATASET NAME AND TYPES
 # ======================
