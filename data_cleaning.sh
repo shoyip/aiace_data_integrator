@@ -28,6 +28,7 @@ set +a;
 # Define the name of the dataset to be loaded in the DB and its subfolders, i.e. dataset types.
 
 dataset_name="Italy Coronavirus Disease Prevention Map Feb 24 2020 Id"
+
 declare -A dataset_types=(
 	["[Discontinued] Facebook Population (Administrative Region) v1"]="population_adm"
 	["[Discontinued] Facebook Population (Tile Level) v1"]="population_tile"
@@ -49,8 +50,8 @@ declare -A dataset_columns=(
 #
 # We initialize the database and make sure the tables are clean
 
-for table_name in ${dataset_types[@]}; do
-	duckdb $DB_FILE -c "DROP TABLE IF EXISTS $table_name;"
+for table_name in "${dataset_types[@]}"; do
+	duckdb "${DB_FILE}" -c "DROP TABLE IF EXISTS ${table_name};"
 done
 
 # DATA INGESTION
@@ -67,6 +68,7 @@ done
 
 for dataset_type in "${!dataset_types[@]}"; do
 
+	# Define the path of the folder the script will look into to find the zipfiles
 	dataset_type_folder="${RAW_DATA_FOLDER}/${dataset_name}/${dataset_type}"
 
 	if [ ! -d "$dataset_type_folder" ]; then
@@ -87,19 +89,19 @@ for dataset_type in "${!dataset_types[@]}"; do
 		# Check whether the temporary data folder exists / is empty
 		# and proceed to creation or cleaning
 
-		if [ -d $TMP_DATA_FOLDER ]; then
-			echo "[LOG] Temporary data folder exists and is located in $TMP_DATA_FOLDER"
+		if [ -d "${TMP_DATA_FOLDER}" ]; then
+			echo "[LOG] Temporary data folder exists and is located in ${TMP_DATA_FOLDER}"
 			echo "[LOG] The content of the folder will be cleaned up"
-			rm -Rf $TMP_DATA_FOLDER/*
+			rm -Rf "${TMP_DATA_FOLDER}"/*
 		else
-			echo "[LOG] Temporary data folder does not exist and will be created in $TMP_DATA_FOLDER"
-			mkdir -p $TMP_DATA_FOLDER
+			echo "[LOG] Temporary data folder does not exist and will be created in ${TMP_DATA_FOLDER}"
+			mkdir -p "${TMP_DATA_FOLDER}"
 		fi
 	
 		# Unzip the files quietly in the temporary folder, or copy the csv file
-		if [[ $datafile == *.zip ]]; then
+		if [[ "${datafile}" == *.zip ]]; then
 			unzip -q "${datafile}" -d "${TMP_DATA_FOLDER}"
-		elif [[ $datafile == *.csv ]]; then
+		elif [[ "${datafile}" == *.csv ]]; then
 			cp "${datafile}" "${TMP_DATA_FOLDER}"
 		else
 			echo "[WARNING] A file that is not a zip nor a csv was detected."
@@ -107,15 +109,16 @@ for dataset_type in "${!dataset_types[@]}"; do
 			continue
 		fi
 
-		# Duplicates check
-		# ----------------
+		# Duplicates check (INACTIVE)
+		# ---------------------------
 		#
 		# Check for redundant data files
 		# from https://unix.stackexchange.com/questions/277697/whats-the-quickest-way-to-find-duplicated-files
-		find ${TMP_DATA_FOLDER} ! -empty -type f -exec md5sum {} + | sort | uniq -w32 -dD
+		# find ${TMP_DATA_FOLDER} ! -empty -type f -exec md5sum {} + | sort | uniq -w32 -dD
+		# Should not be critical since files with the same filenames will be mutually overwritten
 
 		# Let us now proceed to data cleaning and loading
-		for csvfile in $TMP_DATA_FOLDER/*.csv; do
+		for csvfile in "${TMP_DATA_FOLDER}"/*.csv; do
 
 			# Import the data in the database
 			# -------------------------------
@@ -131,12 +134,12 @@ for dataset_type in "${!dataset_types[@]}"; do
 			if [[ "${dataset_types[$dataset_type]}" == "colocation" ]]; then
 				mlr --csv filter '$country == "IT" && !is_empty($link_value)' then \
 					put '$date_time = splita(splita(FILENAME, "/")[-1], "_")[-1][:-5] . " 00:00:00"' then \
-					cut -o -f "${dataset_columns[${dataset_types[$dataset_type]}]}" $csvfile | \
-				duckdb $DB_FILE -c ".import --csv /dev/stdin ${dataset_types[$dataset_type]}"
+					cut -o -f "${dataset_columns[${dataset_types[$dataset_type]}]}" "${csvfile}" | \
+				duckdb "${DB_FILE}" -c ".import --csv /dev/stdin ${dataset_types[$dataset_type]}"
 			else
 				mlr --csv filter '$country == "IT" && !is_empty($n_crisis)' then \
-					cut -o -f "${dataset_columns[${dataset_types[$dataset_type]}]}" $csvfile | \
-				duckdb $DB_FILE -c ".import --csv /dev/stdin ${dataset_types[$dataset_type]}"
+					cut -o -f "${dataset_columns[${dataset_types[$dataset_type]}]}" "${csvfile}" | \
+				duckdb "${DB_FILE}" -c ".import --csv /dev/stdin ${dataset_types[$dataset_type]}"
 			fi
 		done
 	done
@@ -145,4 +148,11 @@ done
 # CLEAN UP
 # ========
 # Clean up the workspace
-rm -Rf $TMP_DATA_FOLDER
+
+finish() {
+  result=$?
+  rm -Rf $TMP_DATA_FOLDER
+  exit ${result}
+}
+
+trap finish EXIT ERR
