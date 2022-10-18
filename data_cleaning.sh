@@ -10,8 +10,12 @@
 # RAW_DATA_FOLDER="[absolute path to the raw data folder]"
 # TMP_DATA_FOLDER="[absolute path to the temporary data folder]"
 # DB_FILE="[absolute path to the DuckDB database instance]"
+
+RAW_DATA_FOLDER=/data/aiace/data/raw
+TMP_DATA_FOLDER=/data/aiace/data/tmp
+DB_FILE=/data/aiace/data/aiace.db
 #
-# Last modified: 2022-10-10
+# Last modified: 2022-10-18
 
 # ENV VARIABLES
 # =============
@@ -82,6 +86,7 @@ for dataset_type in "${!dataset_types[@]}"; do
 	# datafiles, unpack and load each of the unpacked csv files in a temporary folder
 
 	for datafile in "${dataset_type_folder}"/*; do
+		echo "${datafile} was fiybd"
 
 		# Unzip the archives
 		# ------------------
@@ -119,6 +124,7 @@ for dataset_type in "${!dataset_types[@]}"; do
 
 		# Let us now proceed to data cleaning and loading
 		for csvfile in "${TMP_DATA_FOLDER}"/*.csv; do
+			echo "${csvfile}"
 
 			# Import the data in the database
 			# -------------------------------
