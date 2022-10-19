@@ -18,6 +18,10 @@ if [ -f /.dockerenv ]; then
 	RAW_DATA_FOLDER=/app/data/raw
 	TMP_DATA_FOLDER=/app/data/tmp
 	DB_FILE=/app/data/aiace.db
+else
+	set -a;
+	source .env;
+	set +a;
 fi
 
 #
@@ -148,6 +152,7 @@ for dataset_type in "${!dataset_types[@]}"; do
 				duckdb "${DB_FILE}" -c ".import --csv /dev/stdin ${dataset_types[$dataset_type]}"
 			else
 				mlr --csv filter '$country == "IT" && !is_empty($n_crisis)' then \
+					put '$date_time = $date_time . ":00"' then \
 					cut -o -f "${dataset_columns[${dataset_types[$dataset_type]}]}" "${csvfile}" | \
 				duckdb "${DB_FILE}" -c ".import --csv /dev/stdin ${dataset_types[$dataset_type]}"
 			fi
