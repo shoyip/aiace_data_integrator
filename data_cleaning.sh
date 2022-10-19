@@ -59,6 +59,14 @@ declare -A dataset_columns=(
 	["colocation"]="date_time,polygon1_id,polygon2_id,link_value"
 )
 
+declare -A createtable_strings=(
+	["population_adm"]="date_time DATETIME,polygon_name VARCHAR,n_baseline REAL,n_crisis REAL,density_baseline REAL,density_crisis REAL"
+	["population_tile"]="date_time DATETIME,quadkey VARCHAR,n_baseline REAL,n_crisis REAL,density_baseline REAL,density_crisis REAL"
+	["movement_adm"]="date_time DATETIME,start_polygon_id VARCHAR,end_polygon_id VARCHAR,n_baseline REAL,n_crisis REAL"
+	["movement_tile"]="date_time DATETIME,start_quadkey VARCHAR,end_quadkey VARCHAR,n_crisis REAL,n_baseline REAL"
+	["colocation"]="date_time DATETIME,polygon1_id VARCHAR,polygon2_id VARCHAR,link_value REAL"
+)
+
 # DATABASE INITIALIZATION
 # =======================
 #
@@ -123,6 +131,11 @@ for dataset_type in "${!dataset_types[@]}"; do
 			continue
 		fi
 
+		# Create table
+		# ------------
+
+		duckdb "${DB_FILE}" -c "DROP TABLE IF EXISTS ${dataset_types[$dataset_type]}; CREATE TABLE ${dataset_types[$dataset_type]} (${createtable_strings[$dataset_type]});"
+
 		# Duplicates check (INACTIVE)
 		# ---------------------------
 		#
@@ -149,12 +162,12 @@ for dataset_type in "${!dataset_types[@]}"; do
 				mlr --csv filter '$country == "IT" && !is_empty($link_value)' then \
 					put '$date_time = splita(splita(FILENAME, "/")[-1], "_")[-1][:-5] . " 00:00:00"' then \
 					cut -o -f "${dataset_columns[${dataset_types[$dataset_type]}]}" "${csvfile}" | \
-				duckdb "${DB_FILE}" -c ".import --csv /dev/stdin ${dataset_types[$dataset_type]}"
+					duckdb "${DB_FILE}" -c "COPY ${dataset_types[$dataset_type]} FROM '/dev/stdin' (AUTO_DETECT TRUE);"
 			else
 				mlr --csv filter '$country == "IT" && !is_empty($n_crisis)' then \
 					put '$date_time = $date_time . ":00"' then \
 					cut -o -f "${dataset_columns[${dataset_types[$dataset_type]}]}" "${csvfile}" | \
-				duckdb "${DB_FILE}" -c ".import --csv /dev/stdin ${dataset_types[$dataset_type]}"
+					duckdb "${DB_FILE}" -c "COPY ${dataset_types[$dataset_type]} FROM '/dev/stdin' (AUTO_DETECT TRUE);"
 			fi
 		done
 	done
