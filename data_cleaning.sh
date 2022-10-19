@@ -161,7 +161,6 @@ for dataset_type in "${!dataset_types[@]}"; do
 				mlr --csv filter '$country=="IT"' \
 					then cut -o -f "quadkey,lat,lon" \
 					then head -n 1 -g quadkey ${TMP_DATA_FOLDER}/$first_file | \
-					echo
 					duckdb "${DB_FILE}" -c "COPY ref_tile FROM '/dev/stdin' (AUTO_DETECT TRUE);"
 			else
 				continue
