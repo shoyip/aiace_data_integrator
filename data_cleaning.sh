@@ -202,6 +202,7 @@ for dataset_type in "${!dataset_types[@]}"; do
 				mlr --csv filter '$country == "IT" && !is_empty($n_crisis)' then \
 					put '$date_time = $date_time . ":00"' then \
 					cut -o -f "${dataset_columns[${dataset_types[$dataset_type]}]}" "${csvfile}" | \
+					echo
 					duckdb "${DB_FILE}" -c "COPY ${dataset_types[$dataset_type]} FROM '/dev/stdin' (AUTO_DETECT TRUE);"
 			fi
 		done
