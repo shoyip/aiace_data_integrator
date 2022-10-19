@@ -103,6 +103,12 @@ for dataset_type in "${!dataset_types[@]}"; do
 		echo "[LOG] Going to perform the data ingestion process for $dataset_type data"
 	fi
 
+	# Create table
+	# ------------
+
+	echo "[LOG] Creating database table..."
+	duckdb "${DB_FILE}" -c "DROP TABLE IF EXISTS ${dataset_types[$dataset_type]}; CREATE TABLE ${dataset_types[$dataset_type]} (${createtable_strings[${dataset_types[$dataset_type]}]});"
+
 	# For each subfolder (i.e. corresponding to a dataset type), scan throught the
 	# datafiles, unpack and load each of the unpacked csv files in a temporary folder
 
@@ -132,11 +138,6 @@ for dataset_type in "${!dataset_types[@]}"; do
 			echo "[WARNING] A file that is not a zip nor a csv was detected."
 			continue
 		fi
-
-		# Create table
-		# ------------
-
-		duckdb "${DB_FILE}" -c "DROP TABLE IF EXISTS ${dataset_types[$dataset_type]}; CREATE TABLE ${dataset_types[$dataset_type]} (${createtable_strings[$dataset_type]});"
 
 		# Duplicates check (INACTIVE)
 		# ---------------------------
