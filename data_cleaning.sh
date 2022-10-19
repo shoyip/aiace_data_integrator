@@ -34,7 +34,7 @@ DB_FILE=/data/aiace/data/aiace.db
 dataset_name="Italy Coronavirus Disease Prevention Map Feb 24 2020 Id"
 
 declare -A dataset_types=(
-	["[Discontinued] Facebook Population (Administrative Region) v1"]="population_adm"
+	["[Discontinued] Facebook Population (Administrative Regions) v1"]="population_adm"
 	["[Discontinued] Facebook Population (Tile Level) v1"]="population_tile"
 	["[Discontinued] Movement Between Administrative Regions v1"]="movement_adm"
 	["[Discontinued] Movement Between Tiles v1"]="movement_tile"
@@ -71,6 +71,7 @@ done
 
 
 for dataset_type in "${!dataset_types[@]}"; do
+	echo "DATASET TYPE: ${dataset_type}"
 
 	# Define the path of the folder the script will look into to find the zipfiles
 	dataset_type_folder="${RAW_DATA_FOLDER}/${dataset_name}/${dataset_type}"
@@ -86,7 +87,6 @@ for dataset_type in "${!dataset_types[@]}"; do
 	# datafiles, unpack and load each of the unpacked csv files in a temporary folder
 
 	for datafile in "${dataset_type_folder}"/*; do
-		echo "${datafile} was fiybd"
 
 		# Unzip the archives
 		# ------------------
@@ -110,7 +110,6 @@ for dataset_type in "${!dataset_types[@]}"; do
 			cp "${datafile}" "${TMP_DATA_FOLDER}"
 		else
 			echo "[WARNING] A file that is not a zip nor a csv was detected."
-			echo "	${datafile}"
 			continue
 		fi
 
@@ -124,7 +123,6 @@ for dataset_type in "${!dataset_types[@]}"; do
 
 		# Let us now proceed to data cleaning and loading
 		for csvfile in "${TMP_DATA_FOLDER}"/*.csv; do
-			echo "${csvfile}"
 
 			# Import the data in the database
 			# -------------------------------
@@ -145,6 +143,7 @@ for dataset_type in "${!dataset_types[@]}"; do
 			else
 				mlr --csv filter '$country == "IT" && !is_empty($n_crisis)' then \
 					cut -o -f "${dataset_columns[${dataset_types[$dataset_type]}]}" "${csvfile}" | \
+					head -n10
 				duckdb "${DB_FILE}" -c ".import --csv /dev/stdin ${dataset_types[$dataset_type]}"
 			fi
 		done
