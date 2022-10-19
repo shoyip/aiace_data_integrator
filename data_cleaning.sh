@@ -112,6 +112,8 @@ for dataset_type in "${!dataset_types[@]}"; do
 	# For each subfolder (i.e. corresponding to a dataset type), scan throught the
 	# datafiles, unpack and load each of the unpacked csv files in a temporary folder
 
+	COUNTER=0
+
 	for datafile in "${dataset_type_folder}"/*; do
 
 		# Unzip the archives
@@ -139,6 +141,39 @@ for dataset_type in "${!dataset_types[@]}"; do
 			continue
 		fi
 
+		if [[ $COUNTER -eq 0 ]]; then
+
+			echo "[LOG] Creating reference table..."
+
+			# Create reference tables
+			# -----------------------
+
+			first_file=$(ls -AU ${TMP_DATA_FOLDER} | head -1)
+
+			if [[ "${dataset_types[$dataset_type]}" == "colocation" ]]; then
+				echo "It is the first colocation dataset!"
+				duckdb "${DB_FILE}" -c "DROP TABLE IF EXISTS ref_adm; CREATE TABLE ref_adm (polygon_id VARCHAR, polygon_name VARCHAR, latitude REAL, longitude REAL);"
+				mlr --csv filter '$country=="IT"' \
+					then cut -o -f "polygon1_id,polygon1_name,latitude_1,longitude_1" \
+					then head -n 1 -g polygon1_id ${TMP_DATA_FOLDER}/$first_file | \
+					duckdb "${DB_FILE}" -c "COPY ref_adm FROM '/dev/stdin' (AUTO_DETECT TRUE);"
+			elif [[ "${dataset_types[$dataset_type]}" == "population_tile" ]]; then
+				echo "It is the first population_tile dataset!"
+				duckdb "${DB_FILE}" -c "DROP TABLE IF EXISTS ref_tile; CREATE TABLE ref_tile (quadkey VARCHAR, latitude REAL, longitude REAL)"
+				mlr --csv filter '$country=="IT"' \
+					then cut -o -f "quadkey,lat,lon" \
+					then head -n 1 -g quadkey ${TMP_DATA_FOLDER}/$first_file | \
+					echo
+					duckdb "${DB_FILE}" -c "COPY ref_tile FROM '/dev/stdin' (AUTO_DETECT TRUE);"
+			else
+				continue
+			fi
+		else
+			continue
+		fi
+
+		let COUNTER=COUNTER+1
+
 		# Duplicates check (INACTIVE)
 		# ---------------------------
 		#
@@ -146,21 +181,6 @@ for dataset_type in "${!dataset_types[@]}"; do
 		# from https://unix.stackexchange.com/questions/277697/whats-the-quickest-way-to-find-duplicated-files
 		# find ${TMP_DATA_FOLDER} ! -empty -type f -exec md5sum {} + | sort | uniq -w32 -dD
 		# Should not be critical since files with the same filenames will be mutually overwritten
-
-		# Create reference tables
-		# -----------------------
-
-		first_file=$(ls -AU ${TMP_DATA_FOLDER} | head -1)
-
-		if [[ "${dataset_types[$dataset_type]}" == "colocation" ]]; then
-			mlr --csv filter '$country=="IT"' \
-				then cut -o -f polygon1_id,polygon1_name,latitude_1,longitude_1 \
-				then head -n 1 -g polygon1_id $first_file | \
-				duckdb "${DB_FILE}" -c "DROP TABLE IF EXISTS ref_adm; CREATE TABLE ref_adm AS SELECT * FROM '/dev/stdin';"
-		elif [[ "${dataset_types[$dataset_type]}" == "population_tile" ]]; then
-			mlr --csv filter '$country=="IT"' then cut -o -f quadkey,lat,lon $first_file | \
-				duckdb "${DB_FILE}" -c "DROP TABLE IF EXISTS ref_tile; CREATE TABLE ref_tile AS SELECT * FROM '/dev/stdin'"
-		fi
 
 		# Let us now proceed to data cleaning and loading
 		for csvfile in "${TMP_DATA_FOLDER}"/*.csv; do
@@ -200,14 +220,14 @@ iss_datatypes=("deceduti" "ricoveri" "positivi" "terapia_intensiva")
 IFS="," read -r -a iss_provinces <<< $(cat ./iss_provinces.txt)
 for datatype in ${iss_datatypes[@]};
 do
-	duckdb "${DB_FILE}" -c "DROP TABLE IF EXISTS iss_${datatype}; CREATE TABLE iss_${datatype} (province VARCHAR,date_time DATETIME, cases REAL);"
+	duckdb "${DB_FILE}" -c "DROP TABLE IF EXISTS iss_${datatype}; CREATE TABLE iss_${datatype} (province VARCHAR, date_time DATETIME, cases REAL);"
 	for province in ${iss_provinces[@]};
 	do
 		mlr --csv filter '!is_empty($casi_media7gg)' \
 			then put '$data = $data . " 00:00:00"' \
-			then put '$province = "${province}"' \
-			then cut -o -f "province,data,casi_media7gg" iss_bydate_${province}.csv | \
-				duckdb "${DB_FILE}" -c "COPY iss:${datatype} FROM '/dev/stdin' (AUTO_DETECT TRUE);"
+			then put '$province = "'"${province}"'"' \
+			then cut -o -f "province,data,casi_media7gg" ${iss_data_folder}/iss_bydate_${province}_${datatype}.csv | \
+				duckdb "${DB_FILE}" -c "COPY iss_${datatype} FROM '/dev/stdin' (AUTO_DETECT TRUE);"
 	done
 done
 
