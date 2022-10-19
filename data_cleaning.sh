@@ -11,9 +11,15 @@
 # TMP_DATA_FOLDER="[absolute path to the temporary data folder]"
 # DB_FILE="[absolute path to the DuckDB database instance]"
 
-RAW_DATA_FOLDER=/data/aiace/data/raw
-TMP_DATA_FOLDER=/data/aiace/data/tmp
-DB_FILE=/data/aiace/data/aiace.db
+# this should work only with docker
+# otherwise set environment variables before running
+if [ -f /.dockerenv ]; then
+	echo "[LOG] Currently working in a Docker container"
+	RAW_DATA_FOLDER=/app/data/raw
+	TMP_DATA_FOLDER=/app/data/tmp
+	DB_FILE=/app/data/aiace.db
+fi
+
 #
 # Last modified: 2022-10-18
 
@@ -71,7 +77,7 @@ done
 
 
 for dataset_type in "${!dataset_types[@]}"; do
-	echo "DATASET TYPE: ${dataset_type}"
+	echo "[LOG] DATASET TYPE: ${dataset_type}"
 
 	# Define the path of the folder the script will look into to find the zipfiles
 	dataset_type_folder="${RAW_DATA_FOLDER}/${dataset_name}/${dataset_type}"
@@ -143,7 +149,6 @@ for dataset_type in "${!dataset_types[@]}"; do
 			else
 				mlr --csv filter '$country == "IT" && !is_empty($n_crisis)' then \
 					cut -o -f "${dataset_columns[${dataset_types[$dataset_type]}]}" "${csvfile}" | \
-					head -n10
 				duckdb "${DB_FILE}" -c ".import --csv /dev/stdin ${dataset_types[$dataset_type]}"
 			fi
 		done
