@@ -229,6 +229,9 @@ do
 	done
 done
 
+# Create province lookup table
+duckdb "${DB_FILE}" -c "CREATE TABLE province_lookup AS SELECT FROM province_lookup,csv"
+
 # CLEAN UP
 # ========
 # Clean up the workspace
