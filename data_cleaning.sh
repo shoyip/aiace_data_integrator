@@ -87,6 +87,8 @@ done
 # In our case, a plausible set of paths might be, i.e.:
 # 	aiace_dp / data / raw / Italy Coronavirus Disease Prevention Map Feb 24 2020 Id / [Discontinued] Colocation / [...].csv
 
+# Data Ingestion for Facebook Data
+# --------------------------------
 
 for dataset_type in "${!dataset_types[@]}"; do
 	echo "[LOG] DATASET TYPE: ${dataset_type}"
@@ -144,6 +146,21 @@ for dataset_type in "${!dataset_types[@]}"; do
 		# find ${TMP_DATA_FOLDER} ! -empty -type f -exec md5sum {} + | sort | uniq -w32 -dD
 		# Should not be critical since files with the same filenames will be mutually overwritten
 
+		# Create reference tables
+		# -----------------------
+
+		first_file=$(ls -AU ${TMP_DATA_FOLDER} | head -1)
+
+		if [[ "${dataset_types[$dataset_type]}" == "colocation" ]]; then
+			mlr --csv filter '$country=="IT"' \
+				then cut -o -f polygon1_id,polygon1_name,latitude_1,longitude_1 \
+				then head -n 1 -g polygon1_id $first_file | \
+				duckdb "${DB_FILE}" -c "DROP TABLE IF EXISTS ref_adm; CREATE TABLE ref_adm AS SELECT * FROM '/dev/stdin';"
+		elif [[ "${dataset_types[$dataset_type]}" == "population_tile" ]]; then
+			mlr --csv filter '$country=="IT"' then cut -o -f quadkey,lat,lon $first_file | \
+				duckdb "${DB_FILE}" -c "DROP TABLE IF EXISTS ref_tile; CREATE TABLE ref_tile AS SELECT * FROM '/dev/stdin'"
+		fi
+
 		# Let us now proceed to data cleaning and loading
 		for csvfile in "${TMP_DATA_FOLDER}"/*.csv; do
 
@@ -170,6 +187,26 @@ for dataset_type in "${!dataset_types[@]}"; do
 					duckdb "${DB_FILE}" -c "COPY ${dataset_types[$dataset_type]} FROM '/dev/stdin' (AUTO_DETECT TRUE);"
 			fi
 		done
+	done
+done
+
+# Data Ingestion for ISS Data
+# ---------------------------
+
+iss_data_folder=${RAW_DATA_FOLDER}/iss_data
+iss_datatypes=("deceduti" "ricoveri" "positivi" "terapia_intensiva")
+
+IFS="," read -r -a iss_provinces <<< $(cat ./iss_provinces.txt)
+for datatype in ${iss_datatypes[@]};
+do
+	duckdb "${DB_FILE}" -c "DROP TABLE IF EXISTS iss_${datatype}; CREATE TABLE iss_${datatype} (province VARCHAR,date_time DATETIME, cases REAL);"
+	for province in ${iss_provinces[@]};
+	do
+		mlr --csv filter '!is_empty($casi_media7gg)' \
+			then put '$data = $data . " 00:00:00"' \
+			then put '$province = "${province}"' \
+			then cut -o -f "province,data,casi_media7gg" iss_bydate_${province}.csv | \
+				duckdb "${DB_FILE}" -c "COPY iss:${datatype} FROM '/dev/stdin' (AUTO_DETECT TRUE);"
 	done
 done
 
