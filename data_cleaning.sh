@@ -52,7 +52,7 @@ declare -A dataset_types=(
 )
 
 declare -A dataset_columns=(
-	["population_adm"]="date_time,polygon_id,n_baseline,n_crisis,density_baseline,density_crisis"
+	["population_adm"]="date_time,polygon_name,n_baseline,n_crisis,density_baseline,density_crisis"
 	["population_tile"]="date_time,quadkey,n_baseline,n_crisis,density_baseline,density_crisis"
 	["movement_adm"]="date_time,start_polygon_id,end_polygon_id,n_baseline,n_crisis"
 	["movement_tile"]="date_time,start_quadkey,end_quadkey,n_crisis,n_baseline"
