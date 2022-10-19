@@ -151,14 +151,12 @@ for dataset_type in "${!dataset_types[@]}"; do
 			first_file=$(ls -AU ${TMP_DATA_FOLDER} | head -1)
 
 			if [[ "${dataset_types[$dataset_type]}" == "colocation" ]]; then
-				echo "It is the first colocation dataset!"
 				duckdb "${DB_FILE}" -c "DROP TABLE IF EXISTS ref_adm; CREATE TABLE ref_adm (polygon_id VARCHAR, polygon_name VARCHAR, latitude REAL, longitude REAL);"
 				mlr --csv filter '$country=="IT"' \
 					then cut -o -f "polygon1_id,polygon1_name,latitude_1,longitude_1" \
 					then head -n 1 -g polygon1_id ${TMP_DATA_FOLDER}/$first_file | \
 					duckdb "${DB_FILE}" -c "COPY ref_adm FROM '/dev/stdin' (AUTO_DETECT TRUE);"
 			elif [[ "${dataset_types[$dataset_type]}" == "population_tile" ]]; then
-				echo "It is the first population_tile dataset!"
 				duckdb "${DB_FILE}" -c "DROP TABLE IF EXISTS ref_tile; CREATE TABLE ref_tile (quadkey VARCHAR, latitude REAL, longitude REAL)"
 				mlr --csv filter '$country=="IT"' \
 					then cut -o -f "quadkey,lat,lon" \
