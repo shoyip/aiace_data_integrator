@@ -229,7 +229,7 @@ do
 done
 
 # Create province lookup table
-duckdb "${DB_FILE}" -c "CREATE TABLE province_lookup AS SELECT FROM province_lookup,csv"
+duckdb "${DB_FILE}" -c "CREATE TABLE province_lookup AS SELECT FROM read_csv_auto(province_lookup.csv, header=True)"
 
 # CLEAN UP
 # ========
