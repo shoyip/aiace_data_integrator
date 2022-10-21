@@ -45,10 +45,10 @@ dataset_name="Italy Coronavirus Disease Prevention Map Feb 24 2020 Id"
 
 declare -A dataset_types=(
 	["[Discontinued] Facebook Population (Administrative Regions) v1"]="population_adm"
-	["[Discontinued] Facebook Population (Tile Level) v1"]="population_tile"
+	#["[Discontinued] Facebook Population (Tile Level) v1"]="population_tile"
 	["[Discontinued] Movement Between Administrative Regions v1"]="movement_adm"
-	["[Discontinued] Movement Between Tiles v1"]="movement_tile"
-	["[Discontinued] Colocation"]="colocation"
+	#["[Discontinued] Movement Between Tiles v1"]="movement_tile"
+	#["[Discontinued] Colocation"]="colocation"
 )
 
 declare -A dataset_columns=(
@@ -114,7 +114,8 @@ for dataset_type in "${!dataset_types[@]}"; do
 
 	COUNTER=0
 
-	for datafile in "${dataset_type_folder}"/*; do
+	for datafile in "${dataset_type_folder}"/*;
+	do
 
 		# Unzip the archives
 		# ------------------
@@ -141,35 +142,33 @@ for dataset_type in "${!dataset_types[@]}"; do
 			continue
 		fi
 
-		if [[ $COUNTER -eq 0 ]]; then
+		#if [[ $COUNTER -eq 0 ]]; then
 
-			echo "[LOG] Creating reference table..."
+		#	echo "[LOG] Creating reference table..."
 
-			# Create reference tables
-			# -----------------------
+		#	# Create reference tables
+		#	# -----------------------
 
-			first_file=$(ls -AU ${TMP_DATA_FOLDER} | head -1)
+		#	first_file=$(ls -AU ${TMP_DATA_FOLDER} | head -1)
 
-			if [[ "${dataset_types[$dataset_type]}" == "colocation" ]]; then
-				duckdb "${DB_FILE}" -c "DROP TABLE IF EXISTS ref_adm; CREATE TABLE ref_adm (polygon_id VARCHAR, polygon_name VARCHAR, latitude REAL, longitude REAL);"
-				mlr --csv filter '$country=="IT"' \
-					then cut -o -f "polygon1_id,polygon1_name,latitude_1,longitude_1" \
-					then head -n 1 -g polygon1_id ${TMP_DATA_FOLDER}/$first_file | \
-					duckdb "${DB_FILE}" -c "COPY ref_adm FROM '/dev/stdin' (AUTO_DETECT TRUE);"
-			elif [[ "${dataset_types[$dataset_type]}" == "population_tile" ]]; then
-				duckdb "${DB_FILE}" -c "DROP TABLE IF EXISTS ref_tile; CREATE TABLE ref_tile (quadkey VARCHAR, latitude REAL, longitude REAL)"
-				mlr --csv filter '$country=="IT"' \
-					then cut -o -f "quadkey,lat,lon" \
-					then head -n 1 -g quadkey ${TMP_DATA_FOLDER}/$first_file | \
-					duckdb "${DB_FILE}" -c "COPY ref_tile FROM '/dev/stdin' (AUTO_DETECT TRUE);"
-			else
-				continue
-			fi
-		else
-			continue
-		fi
+		#	if [[ "${dataset_types[$dataset_type]}" == "colocation" ]]; then
+		#		duckdb "${DB_FILE}" -c "DROP TABLE IF EXISTS ref_adm; CREATE TABLE ref_adm (polygon_id VARCHAR, polygon_name VARCHAR, latitude REAL, longitude REAL);"
+		#		mlr --csv filter '$country=="IT"' \
+		#			then cut -o -f "polygon1_id,polygon1_name,latitude_1,longitude_1" \
+		#			then head -n 1 -g polygon1_id ${TMP_DATA_FOLDER}/$first_file | \
+		#			duckdb "${DB_FILE}" -c "COPY ref_adm FROM '/dev/stdin' (AUTO_DETECT TRUE);"
+		#	elif [[ "${dataset_types[$dataset_type]}" == "population_tile" ]]; then
+		#		duckdb "${DB_FILE}" -c "DROP TABLE IF EXISTS ref_tile; CREATE TABLE ref_tile (quadkey VARCHAR, latitude REAL, longitude REAL)"
+		#		mlr --csv filter '$country=="IT"' \
+		#			then cut -o -f "quadkey,lat,lon" \
+		#			then head -n 1 -g quadkey ${TMP_DATA_FOLDER}/$first_file | \
+		#			duckdb "${DB_FILE}" -c "COPY ref_tile FROM '/dev/stdin' (AUTO_DETECT TRUE);"
+		#	else
+		#		continue
+		#	fi
+		#fi
 
-		let COUNTER=COUNTER+1
+		#let COUNTER=COUNTER+1
 
 		# Duplicates check (INACTIVE)
 		# ---------------------------
@@ -217,6 +216,7 @@ iss_datatypes=("deceduti" "ricoveri" "positivi" "terapia_intensiva")
 IFS="," read -r -a iss_provinces <<< $(cat ./iss_provinces.txt)
 for datatype in ${iss_datatypes[@]};
 do
+	echo "[LOG] Creating ISS table ${datatype}..."
 	duckdb "${DB_FILE}" -c "DROP TABLE IF EXISTS iss_${datatype}; CREATE TABLE iss_${datatype} (province VARCHAR, date_time DATETIME, cases REAL);"
 	for province in ${iss_provinces[@]};
 	do
@@ -229,7 +229,7 @@ do
 done
 
 # Create province lookup table
-duckdb "${DB_FILE}" -c "CREATE TABLE province_lookup AS SELECT FROM read_csv_auto(province_lookup.csv, header=True)"
+duckdb "${DB_FILE}" -c "DROP TABLE IF EXISTS province_lookup; CREATE TABLE province_lookup AS SELECT * FROM read_csv_auto('province_lookup.csv', header=True)"
 
 # CLEAN UP
 # ========
